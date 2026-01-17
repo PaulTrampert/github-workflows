@@ -27,13 +27,12 @@ concurrency:
 jobs:
   publish-github-release:
     runs-on: ubuntu-latest
-    if: ${{ github.ref == inputs.main_branch && needs.check-changes.outputs.has_changes == 'true' }}
     steps:
     - uses: actions/download-artifact@v7
         
     - uses: softprops/action-gh-release@v2
       with:
-        tag_name: v${{ needs.version.outputs.version }}
+        tag_name: v${{ inputs.version }}
         files: |
           **/*.nupkg
           **/*.snupkg
@@ -43,7 +42,6 @@ jobs:
   
   publish-nuget-package:
     runs-on: ubuntu-latest
-    if: ${{ github.ref == inputs.main_branch && needs.check-changes.outputs.has_changes == 'true' }}
     steps:
     - uses: actions/setup-dotnet@v5
       with:
@@ -52,4 +50,4 @@ jobs:
     - uses: actions/download-artifact@v7
     
     - name: Publish nuget package
-      run: dotnet nuget push **/*.nupkg -s https://api.nuget.org/v3/index.json -k ${{secrets.NUGET_ORG_SECRET}}
+      run: dotnet nuget push **/*.nupkg -s https://api.nuget.org/v3/index.json -k ${{secrets.nuget_api_key}}

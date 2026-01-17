@@ -69,6 +69,7 @@ jobs:
     uses: ./.github/workflows/dotnet-library-publish.yml
     if: ${{ github.ref == inputs.main_branch && needs.check-changes.outputs.has_changes == 'true' }}
     needs:
+    - check-changes
     - version
     - build-test
     with:
