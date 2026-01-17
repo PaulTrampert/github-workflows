@@ -1,0 +1,55 @@
+name: Publish dotnet library
+
+permissions:
+  contents: write
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: "The version to publish."
+        required: true
+        type: string
+      global_json:
+        description: "Path to the global.json file to use for .NET SDK version."
+        required: false
+        default: "./global.json"
+        type: string
+    secrets:
+      nuget_api_key:
+        description: "API key for publishing to NuGet.org"
+        required: true
+
+concurrency:
+  group: "dotnet-library-publish"
+  cancel-in-progress: false
+
+jobs:
+  publish-github-release:
+    runs-on: ubuntu-latest
+    if: ${{ github.ref == inputs.main_branch && needs.check-changes.outputs.has_changes == 'true' }}
+    steps:
+    - uses: actions/download-artifact@v7
+        
+    - uses: softprops/action-gh-release@v2
+      with:
+        tag_name: v${{ needs.version.outputs.version }}
+        files: |
+          **/*.nupkg
+          **/*.snupkg
+        fail_on_unmatched_files: true
+        target_commitish: ${{github.sha}}
+        generate_release_notes: true
+  
+  publish-nuget-package:
+    runs-on: ubuntu-latest
+    if: ${{ github.ref == inputs.main_branch && needs.check-changes.outputs.has_changes == 'true' }}
+    steps:
+    - uses: actions/setup-dotnet@v5
+      with:
+        global-json-file: ${{ inputs.global_json }}
+    
+    - uses: actions/download-artifact@v7
+    
+    - name: Publish nuget package
+      run: dotnet nuget push **/*.nupkg -s https://api.nuget.org/v3/index.json -k ${{secrets.NUGET_ORG_SECRET}}

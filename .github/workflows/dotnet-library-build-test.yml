@@ -34,7 +34,7 @@ jobs:
       run: dotnet restore ${{inputs.project_name}}.sln
       
     - name: Test
-      run: dotnet test ${{inputs.project_name}}.Test/${{inputs.project_name}}.Test.csproj
+      run: dotnet test ${{inputs.project_name}}.sln
       
     - name: Pack
       run: dotnet pack ${{inputs.project_name}}/${{inputs.project_name}}.csproj -c Release -o package --include-source /p:Version=${{inputs.version}}
