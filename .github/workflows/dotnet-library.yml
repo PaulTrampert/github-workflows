@@ -43,12 +43,29 @@ jobs:
           echo "No tags found, treating as changed"
           echo "has_changes=true" >> $GITHUB_OUTPUT
         else
-          if git diff --quiet "$LATEST_TAG"..HEAD -- ${{ inputs.project_name }}/; then
-            echo "No changes in ${{ inputs.project_name }}/ since $LATEST_TAG"
+          # Find all non-test .csproj files
+          CSPROJ_FILES=$(find . -name "*.csproj" | grep -v Test | grep -v "^\./\." | sort)
+          
+          if [ -z "$CSPROJ_FILES" ]; then
+            echo "No non-test .csproj files found"
             echo "has_changes=false" >> $GITHUB_OUTPUT
           else
-            echo "Changes detected in ${{ inputs.project_name }}/ since $LATEST_TAG"
-            echo "has_changes=true" >> $GITHUB_OUTPUT
+            CHANGED=false
+            while IFS= read -r csproj; do
+              dir=$(dirname "$csproj")
+              if ! git diff --quiet "$LATEST_TAG"..HEAD -- "$dir"; then
+                echo "Changes detected in $dir"
+                CHANGED=true
+                break
+              fi
+            done <<< "$CSPROJ_FILES"
+            
+            if [ "$CHANGED" = true ]; then
+              echo "has_changes=true" >> $GITHUB_OUTPUT
+            else
+              echo "No changes in non-test projects since $LATEST_TAG"
+              echo "has_changes=false" >> $GITHUB_OUTPUT
+            fi
           fi
         fi
 
