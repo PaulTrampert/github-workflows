@@ -37,7 +37,7 @@ jobs:
       run: dotnet test ${{inputs.project_name}}.sln
       
     - name: Pack
-      run: dotnet pack ${{inputs.project_name}}/${{inputs.project_name}}.csproj -c Release -o package --include-source /p:Version=${{inputs.version}}
+      run: dotnet pack ${{inputs.project_name}}.sln -c Release -o package --include-source /p:Version=${{inputs.version}}
         
     - name: Upload a Build Artifact
       uses: actions/upload-artifact@v6
