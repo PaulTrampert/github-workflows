@@ -28,17 +28,54 @@ jobs:
   publish-github-release:
     runs-on: ubuntu-latest
     steps:
+    - uses: actions/checkout@v6
+      with:
+        fetch-depth: 0
+
+    - name: Find previous release tag
+      id: previous_tag
+      run: echo "tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")" >> $GITHUB_OUTPUT
+
+    # Builds release notes from commit messages rather than GitHub's generated notes, which only
+    # link PRs whose merge commit hash matches. Any "#123" reference is linked to its PR or issue
+    # (GitHub redirects /issues/<n> to /pull/<n> for pull requests).
+    - name: Build release notes
+      id: release_notes
+      uses: mikepenz/release-changelog-builder-action@v6
+      with:
+        mode: "COMMIT"
+        offlineMode: true
+        fromTag: ${{ steps.previous_tag.outputs.tag }}
+        toTag: ${{ github.sha }}
+        failOnError: true
+        configurationJson: |
+          {
+            "template": "#{{CHANGELOG}}",
+            "empty_template": "- No changes",
+            "commit_template": "- #{{TITLE}}",
+            "sort": { "order": "DESC", "on_property": "mergedAt" },
+            "categories": [{ "title": "## Changes", "labels": [] }],
+            "transformers": [
+              {
+                "pattern": "(^|[^\\w\\[/])#(\\d+)\\b",
+                "target": "$1[#$2](${{ github.server_url }}/${{ github.repository }}/issues/$2)"
+              }
+            ]
+          }
+
     - uses: actions/download-artifact@v7
-        
+      with:
+        path: artifacts
+
     - uses: softprops/action-gh-release@v2
       with:
         tag_name: v${{ inputs.version }}
         files: |
-          **/*.nupkg
-          **/*.snupkg
+          artifacts/**/*.nupkg
+          artifacts/**/*.snupkg
         fail_on_unmatched_files: true
         target_commitish: ${{github.sha}}
-        generate_release_notes: true
+        body: ${{ steps.release_notes.outputs.changelog }}
   
   publish-nuget-package:
     runs-on: ubuntu-latest

@@ -113,6 +113,7 @@ This means updates to documentation, CI configuration, or other files outside th
 - Automatic versioning based on PR titles and git tags
 - Builds and tests the project
 - Publishes to NuGet.org (only on main branch with changes)
+- Creates a GitHub release whose notes list the commit messages since the previous tag, with `#123` references linked to the matching PR or issue
 - Uses global.json for consistent .NET SDK versioning
 
 **Workflow Jobs:**
