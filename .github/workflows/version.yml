@@ -58,7 +58,7 @@ jobs:
 
     - name: Calculate Version
       id: version
-      uses: paulhatch/semantic-version@v6.0.4
+      uses: paulhatch/semantic-version@v6.0.5
       with:
         version_format: ${{format('{0}{1}', env.VERSION_FORMAT, env.PRERELEASE_PATTERN)}}
         major_pattern: '(MAJOR)'
