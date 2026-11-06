@@ -20,10 +20,24 @@ on:
         required: false
         default: "./global.json"
         type: string
+    outputs:
+      version:
+        description: "The version that was built."
+        value: ${{ jobs.version.outputs.version }}
+      released:
+        description: |
+          'true' when this run created a GitHub release, meaning the packages should be pushed to NuGet.org.
+          Empty otherwise.
+        value: ${{ jobs.publish.outputs.released }}
+      package_artifact:
+        description: "Name of the workflow run artifact containing the built .nupkg and .snupkg files."
+        value: ${{ jobs.build-test.outputs.package_artifact }}
     secrets:
       nuget_api_key:
-        description: "API key for publishing to NuGet.org"
-        required: true
+        description: |
+          Deprecated. API key for publishing to NuGet.org. Omit it and push the package artifact from the
+          calling workflow using NuGet trusted publishing instead.
+        required: false
 
 jobs:
   check-changes:

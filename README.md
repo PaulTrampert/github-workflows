@@ -44,32 +44,61 @@ jobs:
 
 ### dotnet-library.yml
 
-A comprehensive workflow for building, testing, versioning, and publishing .NET libraries to NuGet.
+A comprehensive workflow for building, testing, versioning, and releasing .NET libraries for NuGet.
 
-**Purpose:** Automates the entire lifecycle of a .NET library from build to NuGet publication, including smart change detection and version management.
+**Purpose:** Automates the lifecycle of a .NET library from build to a NuGet-ready release, including smart change detection and version management.
 
 **Usage:**
 
+The shared workflow builds, tests, versions and creates the GitHub release, but does **not** push to
+NuGet.org. NuGet.org [trusted publishing](https://learn.microsoft.com/en-us/nuget/nuget-org/trusted-publishing)
+issues short-lived API keys to the calling repository's workflow, so the push happens in a job of your own:
+
 ```yaml
-name: Build and Publish
+name: Main Build Pipeline
+
+permissions:
+  contents: write
+
 on:
-  push:
-    branches:
-      - main
   pull_request:
+    branches: ["main"]
+  push:
+    branches: ["main"]
 
 jobs:
-  build:
+  dotnet-library:
     uses: PaulTrampert/github-workflows/.github/workflows/dotnet-library.yml@main
     with:
       project_name: "YourProjectName"
       main_branch: "refs/heads/main"  # Optional, defaults to refs/heads/main
       global_json: "./global.json"    # Optional, defaults to ./global.json
-    secrets:
-      nuget_api_key: ${{ secrets.NUGET_API_KEY }}
+
+  publish-nuget:
+    needs: dotnet-library
+    if: ${{ needs.dotnet-library.outputs.released == 'true' }}
+    runs-on: ubuntu-latest
     permissions:
-      contents: write
+      id-token: write  # Lets NuGet/login exchange a GitHub OIDC token for a temporary NuGet API key
+    steps:
+    - uses: actions/download-artifact@v8
+      with:
+        name: ${{ needs.dotnet-library.outputs.package_artifact }}
+        path: package
+
+    - name: NuGet login (OIDC → temporary API key)
+      uses: NuGet/login@v1
+      id: login
+      with:
+        user: ${{ secrets.NUGET_USER }}  # nuget.org profile name, not email
+
+    # Pushing a .nupkg also pushes the matching .snupkg from the same folder.
+    - name: Push to NuGet.org
+      run: dotnet nuget push "package/*.nupkg" --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate
 ```
+
+On nuget.org, add a trusted publishing policy with the repository owner, repository name, and the file name
+of **your** workflow (e.g. `dotnet-library.yml`, without the `.github/workflows/` path).
 
 **Inputs:**
 
@@ -79,11 +108,19 @@ jobs:
 | `main_branch` | No | `refs/heads/main` | The main branch name |
 | `global_json` | No | `./global.json` | Path to the global.json file for .NET SDK version |
 
+**Outputs:**
+
+| Output | Description |
+|--------|-------------|
+| `version` | The version that was built. |
+| `released` | `'true'` when this run created a GitHub release, meaning the packages should be pushed to NuGet.org. Empty otherwise. |
+| `package_artifact` | Name of the workflow run artifact containing the built `.nupkg` and `.snupkg` files. |
+
 **Secrets:**
 
 | Secret | Required | Description |
 |--------|----------|-------------|
-| `nuget_api_key` | Yes | API key for publishing to NuGet.org |
+| `nuget_api_key` | No | **Deprecated.** When passed, the shared workflow pushes to NuGet.org with this key, as it used to. Omit it once your workflow pushes the package itself. |
 
 **Expected Project Structure:**
 
@@ -102,7 +139,7 @@ repository-root/
 
 **Release Behavior:**
 
-A release is only tagged and published to NuGet when:
+A release is only tagged (and `released` set to `'true'`) when:
 1. The workflow runs on the main branch (as specified by `main_branch` input)
 2. Changes are detected in the `<project_name>/` directory since the last git tag
 
@@ -112,7 +149,7 @@ This means updates to documentation, CI configuration, or other files outside th
 - Change detection: Only publishes if changes in the target library are detected since the last tag
 - Automatic versioning based on PR titles and git tags
 - Builds and tests the project
-- Publishes to NuGet.org (only on main branch with changes)
+- Exposes the built packages as a run artifact so the caller can push them to NuGet.org (only on main branch with changes)
 - Creates a GitHub release whose notes list the commit messages since the previous tag, with `#123` references linked to the matching PR or issue
 - Uses global.json for consistent .NET SDK versioning
 
@@ -120,7 +157,7 @@ This means updates to documentation, CI configuration, or other files outside th
 1. **check-changes:** Detects if changes exist in `<project_name>/` since the last git tag
 2. **version:** Calculates the next version number
 3. **build-test:** Builds and tests the project
-4. **publish:** Publishes to NuGet (conditional)
+4. **publish:** Creates the GitHub release (conditional)
 
 ### dotnet-publish-docs.yml
 

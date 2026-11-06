@@ -15,10 +15,16 @@ on:
         required: false
         default: "./global.json"
         type: string
+    outputs:
+      released:
+        description: "'true' once the GitHub release and tag have been created."
+        value: ${{ jobs.publish-github-release.outputs.released }}
     secrets:
       nuget_api_key:
-        description: "API key for publishing to NuGet.org"
-        required: true
+        description: |
+          Deprecated. API key for publishing to NuGet.org. When omitted, the caller is responsible for
+          pushing the packages (e.g. via NuGet trusted publishing).
+        required: false
 
 concurrency:
   group: "dotnet-library-publish"
@@ -27,6 +33,8 @@ concurrency:
 jobs:
   publish-github-release:
     runs-on: ubuntu-latest
+    outputs:
+      released: ${{ steps.released.outputs.released }}
     steps:
     - uses: actions/checkout@v7
       with:
@@ -76,13 +84,24 @@ jobs:
         fail_on_unmatched_files: true
         target_commitish: ${{github.sha}}
         body: ${{ steps.release_notes.outputs.changelog }}
+
+    - name: Mark release as created
+      id: released
+      run: echo "released=true" >> $GITHUB_OUTPUT
   
+  # Deprecated: only pushes when the caller still passes nuget_api_key. Callers using NuGet trusted
+  # publishing push the package artifact themselves (see README).
   publish-nuget-package:
     runs-on: ubuntu-latest
+    env:
+      NUGET_API_KEY: ${{ secrets.nuget_api_key }}
     steps:
     - uses: actions/setup-dotnet@v6
-    
+      if: ${{ env.NUGET_API_KEY != '' }}
+
     - uses: actions/download-artifact@v8
-    
+      if: ${{ env.NUGET_API_KEY != '' }}
+
     - name: Publish nuget package
-      run: dotnet nuget push **/*.nupkg -s https://api.nuget.org/v3/index.json -k ${{secrets.nuget_api_key}}
+      if: ${{ env.NUGET_API_KEY != '' }}
+      run: dotnet nuget push **/*.nupkg -s https://api.nuget.org/v3/index.json -k "$NUGET_API_KEY"

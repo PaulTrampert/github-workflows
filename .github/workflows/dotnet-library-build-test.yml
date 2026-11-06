@@ -19,9 +19,15 @@ on:
         required: false
         type: string
         default: './global.json'
+    outputs:
+      package_artifact:
+        description: "Name of the workflow run artifact containing the .nupkg and .snupkg files."
+        value: ${{ jobs.build-test.outputs.package_artifact }}
 jobs:
   build-test:
     runs-on: ubuntu-latest
+    outputs:
+      package_artifact: package
     steps:
     - uses: actions/checkout@v7
       
@@ -46,5 +52,3 @@ jobs:
         path: |
           package/*.nupkg
           package/*.snupkg
-    
-    
